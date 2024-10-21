@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    control-plane: switchblade
+  name: switchblade
+  namespace: boundless-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: switchblade
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: switchblade
+      labels:
+        control-plane: switchblade
+    spec:
+      containers:
+      - args:
+        - --leader-elect
+        command:
+        - /switchblade
+        image: "{{ .Values.image.name }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        # image: 818674127672.dkr.ecr.us-east-1.amazonaws.com/switchblade:latest
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: aws-credentials
+                key: AWS_ACCESS_KEY_ID
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: aws-credentials
+                key: AWS_SECRET_ACCESS_KEY        
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: switchblade
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+      imagePullSecrets:
+        - name: regcred
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: switchblade
+      terminationGracePeriodSeconds: 10
+
